@@ -4,86 +4,148 @@
 <meta charset="UTF-8">
 <title>贪吃蛇</title>
 <style>
-    body { background:#1a1a2e; color:#fff; font-family:sans-serif;
-        text-align:center; margin-top:30px; }
-    canvas { background:#16213e; border:4px solid #0f3460; border-radius:8px; }
-    #score { font-size:24px; margin:10px; }
+  body { background:#1a1a2e; color:#fff; font-family:sans-serif; text-align:center; margin-top:30px; }
+  canvas { background:#16213e; border:4px solid #e9c46a; margin:10px; }
+  #score { font-size:24px; margin:10px; }
+  #best { font-size:18px; }
+  button { background:#0f3460; color:#fff; border:2px solid #4ecca3; border-radius:6px; padding:8px 16px; font-size:16px; cursor:pointer; margin:4px; }
+  button:hover { background:#e94560; }
+  button.on { background:#e94560; }
 </style>
- </head>
+</head>
 <body>
 <h1>🐍 贪吃蛇</h1>
 <div id="score">得分: 0</div>
+<div id="best">🏆 最高分: 0</div>
 <canvas id="board" width="400" height="400"></canvas>
-<p>按方向键开始 · 撞墙或撞自己结束 · 按空格重新开始</p>
+<p>
+  <button id="btnManual" class="on">🎮 手动模式</button>
+  <button id="btnAuto">🤖 AI自动模式</button>
+</p >
+<p id="tip">方向键控制 · 空格重新开始</p >
 <script>
 const canvas = document.getElementById('board');
 const ctx = canvas.getContext('2d');
 const G = 20;
-let snake, dir, food, score, timer, dead;
+let snake, dir, food, score, timer, dead, aiMode = false;
+let best = parseInt(localStorage.getItem('snakeBest')) || 0;
+let speed = 150;
+const FASTEST = 60;
+document.getElementById('best').textContent = '🏆 最高分: ' + best;
 
 function start() {
-    snake =[{x:10,y:10},{x:9,y:10},{x:8,y:10}];
-    dir = {x:1,y:0};
-    score = 0; dead = false;
-    placeFood();
-    document.getElementById('score').textContent = '得分: 0';
+  snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir = {x:1,y:0};
+  score = 0; dead = false;
+  document.getElementById('score').textContent = '得分: 0';
+  placeFood();
+  speed = 150;
+  restartTimer();
+  draw();
+}
+function restartTimer() {
     clearInterval(timer);
-    timer = setInterval(step,150);
+    timer = setInterval(step,speed);
 }
 
 function placeFood() {
+  do {
+    food = {x:Math.floor(Math.random()*G), y:Math.floor(Math.random()*G)};
+  } while (snake.some(s => s.x === food.x && s.y === food.y));
+}
 
-    do {
-        food = {x:Math.floor(Math.random()*G),y:Math.floor(Math.random()*G)};
-    } while (snake.some(s => s.x === food.x && s.y === food.y));
+/* AI：贪心找路，没路可走就保持原方向 */
+function aiChooseDir() {
+  const head = snake[0];
+  const options = [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+  let bestDir = null, bestDist = Infinity;
+  for (const d of options) {
+    const nx = head.x + d.x, ny = head.y + d.y;
+    if (nx < 0 || nx >= G || ny < 0 || ny >= G) continue;
+    if (snake.some((s,i) => i < snake.length-1 && s.x === nx && s.y === ny)) continue;
+    if (d.x === -dir.x && d.y === -dir.y) continue;
+    const dist = Math.abs(nx - food.x) + Math.abs(ny - food.y);
+    if (dist < bestDist) { bestDist = dist; bestDir = d; }
+  }
+  if (bestDir) dir = bestDir;
 }
 
 function step() {
-    if (dead) return;
-    const head = {x:snake[0].x + dir.x, y:snake[0].y + dir.y};
-    if (head.x < 0 || head.x >= G || head.y < 0 || head.y >= G) return gameOver();
-    if (snake.some(s => s.x === head.x && s.y === head.y)) return gameOver();
-    snake.unshift(head);
-    if (head.x === food.x && head.y === food.y) {
-        score++; 
-        document.getElementById('score').textContent = '得分: ' + score;
-        placeFood();
-    } else {
-        snake.pop();
+  if (dead) return;
+  if (aiMode) aiChooseDir();
+  const head = {x:snake[0].x + dir.x, y:snake[0].y + dir.y};
+  if (head.x < 0 || head.x >= G || head.y < 0 || head.y >= G ||
+      snake.some((s,i) => i < snake.length-1 && s.x === head.x && s.y === head.y)) {
+    gameOver(); return;
+  }
+  snake.unshift(head);
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    document.getElementById('score').textContent = '得分: ' + score;
+    if (score > best) {
+      best = score;
+      localStorage.setItem('snakeBest', best);
+      document.getElementById('best').textContent = '🏆 最高分: ' + best;
     }
-    draw();
+    placeFood();
+    speed = Math.max(FASTEST, speed - 5);
+    restartTimer();
+  } else {
+    snake.pop();
+  }
+  draw();
 }
 
 function gameOver() {
-    dead = true;
-    clearInterval(timer);
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.fillRect(0,0,400,400);
-    ctx.fillStyle = '#fff';
-    ctx.font = '28px sams-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('游戏结束！得分 ' + score, 200, 190);
-    ctx.font = '16px sans-serif';
-    ctx.fillText('按空格重新开始', 200, 220);
+  dead = true;
+  clearInterval(timer);
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0,0,400,400);
+  ctx.fillStyle = '#fff';
+  ctx.font = '28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('游戏结束！得分 ' + score, 200, 190);
+  ctx.font = '16px sans-serif';
+  ctx.fillText('按空格重新开始', 200, 220);
 }
 
 function draw() {
-    ctx.clearRect(0,0,400,400);
-    ctx.fillStyle = '#e94560';
-    ctx.fillRect(food.x*G+2, food.y*G+2, G-4, G-4);
-    snake.forEach((s,i) => {
-        ctx.fillStyle = i === 0 ? '#4ecca3' : '#2e9e78';
-        ctx.fillRect(s.x*G+1, s.y*G+1, G-2, G-2);
-    });
+  ctx.clearRect(0,0,400,400);
+  ctx.fillStyle = '#e94560';
+  ctx.fillRect(food.x*G+2, food.y*G+2, G-4, G-4);
+  snake.forEach((s,i) => {
+    ctx.fillStyle = i === 0 ? '#4ecca3' : '#2e9e78';
+    ctx.fillRect(s.x*G+1, s.y*G+1, G-2, G-2);
+  });
 }
 
 document.addEventListener('keydown', e => {
-    if (e.code === 'Space') { start(); return; }
-    if (e.code === 'ArrowUp' && dir.y !== 1) dir = {x:0,y:-1};
-    else if (e.code === 'ArrowDown' && dir.y !== -1) dir = {x:0,y:1};
-    else if (e.code === 'ArrowLeft' && dir.x !== 1) dir = {x:-1,y:0};
-    else if (e.code === 'ArrowRight' && dir.x !== -1) dir = {x:1,y:0};
+  if (e.code === 'Space') { start(); return; }
+  if (aiMode) return;
+  if (e.code === 'ArrowUp'    && dir.y !== 1)  dir = {x:0,y:-1};
+  else if (e.code === 'ArrowDown'  && dir.y !== -1) dir = {x:0,y:1};
+  else if (e.code === 'ArrowLeft'  && dir.x !== 1)  dir = {x:-1,y:0};
+  else if (e.code === 'ArrowRight' && dir.x !== -1) dir = {x:1,y:0};
 });
+
+/* 按钮切换模式 */
+const btnManual = document.getElementById('btnManual');
+const btnAuto = document.getElementById('btnAuto');
+btnManual.onclick = () => {
+  aiMode = false;
+  btnManual.classList.add('on');
+  btnAuto.classList.remove('on');
+  document.getElementById('tip').textContent = '方向键控制 · 空格重新开始';
+  start();
+};
+btnAuto.onclick = () => {
+  aiMode = true;
+  btnAuto.classList.add('on');
+  btnManual.classList.remove('on');
+  document.getElementById('tip').textContent = '🤖 AI 自动寻路中，坐稳看戏';
+  start();
+};
+
 start();
 </script>
 </body>
