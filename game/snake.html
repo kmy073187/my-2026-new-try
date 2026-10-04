@@ -21,6 +21,7 @@
 <p>
   <button id="btnManual" class="on">🎮 手动模式</button>
   <button id="btnAuto">🤖 AI自动模式</button>
+  <button id="themeBtn">🎨 切换主题</button>
 </p >
 <p id="tip">方向键控制 · 空格重新开始</p >
 <script>
@@ -147,6 +148,29 @@ btnAuto.onclick = () => {
 };
 
 start();
+let dark = true;
+
+function applyTheme() {
+  if (dark) {
+    document.body.style.background = '#1a1035';
+    document.body.style.color = '#e0d7ff';
+    canvas.style.borderColor = '#9d4edd';
+  } else {
+    document.body.style.background = '#f5f5f5';
+    document.body.style.color = '#222';
+    canvas.style.borderColor = '#333';
+  }
+  localStorage.setItem('snakeTheme', dark ? 'dark' : 'light');
+}
+
+dark = localStorage.getItem('snakeTheme') !== 'light';
+applyTheme();
+
+document.getElementById('themeBtn').onclick = () => {
+  dark = !dark;
+  applyTheme();
+};
+
 </script>
 </body>
 </html>
